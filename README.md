@@ -3,9 +3,6 @@
 ### nRF52840 · MAX30102 · Zephyr · Edge Impulse · TinyML
 
 A capstone research prototype that acquires PPG over I²C, processes the signal on an nRF52840 MCU, and estimates **mean arterial pressure (MAP)** with a 1D CNN. The final project integrated sensor acquisition, embedded inference, and cuff-reference offset calibration.
-
-**Team project:** Moon-Hee Kwon and Jin-Won Doo. Results below come from the final capstone report, sections 3–4. The existing `code/` directory represents the earlier model-development stage.
-
 ## System
 
 ```mermaid
