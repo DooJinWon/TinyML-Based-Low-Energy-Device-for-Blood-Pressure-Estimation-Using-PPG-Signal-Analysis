@@ -3,6 +3,10 @@
 ### nRF52840 · MAX30102 · Zephyr · Edge Impulse · TinyML
 
 A capstone research prototype that acquires PPG over I²C, processes the signal on an nRF52840 MCU, and estimates **mean arterial pressure (MAP)** with a 1D CNN. The final project integrated sensor acquisition, embedded inference, and cuff-reference offset calibration.
+**POSTECH capstone team project · September 2025–June 2026**
+
+**My role:** I implemented the end-to-end sensing and inference pipeline, from PPG acquisition and preprocessing to model deployment on the nRF52840 and subject-specific calibration. I trained a 1D CNN using the public UCI PPG/ABP dataset and worked on quantization and input-size optimization for the MCU’s limited memory and computational resources.
+
 ## System
 
 ```mermaid
@@ -62,11 +66,11 @@ An initial Edge Impulse evaluation in the report lists MAE **5.06 mmHg**, MSE **
 
 | Resource | Scope |
 |---|---|
-| [`code/`](code/) | Earlier Python preprocessing, PyTorch CNN training, ONNX export, model-to-header utilities |
-| [`Middle_Report.pdf`](Middle_Report.pdf) | Earlier project report |
+| [`src/`](src/) | Earlier Python preprocessing, PyTorch CNN training, ONNX export, model-to-header utilities |
+| [`docs/intermediate-report.pdf`](docs/intermediate-report.pdf) | Earlier project report |
 | This README | Final implementation and result summary from the supplied final report |
 
-The final Edge Impulse model export, complete Zephyr build configuration, and raw experimental logs are not included in the original repository. The published earlier scripts alone do not reproduce the final hardware result. `code/convert_to_tflite.py` prepares sample calibration data; it is not a complete model converter.
+The final Edge Impulse model export, complete Zephyr build configuration, and raw experimental logs are not included in the original repository. The published earlier scripts alone do not reproduce the final hardware result. `src/convert_to_tflite.py` prepares sample calibration data; it is not a complete model converter.
 
 The final report appendix contains differences requiring reconciliation before a reproducible rebuild: training preprocessing defaults to median/IQR scaling, while the embedded snippet uses z-score normalization; FIFO averaging must be checked against the effective acquisition rate before asserting an 8-second hardware window.
 
