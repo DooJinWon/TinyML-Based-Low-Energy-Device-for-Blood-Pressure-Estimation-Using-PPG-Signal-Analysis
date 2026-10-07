@@ -1,151 +1,55 @@
-# TinyML-Based Low-Power Blood Pressure Estimation Device  
-Using PPG Signal Analysis
+# PPG Blood Pressure Estimation / TinyML Preparation
 
-This repository contains the implementation and system design of a low-power wearable blood pressure estimation device based on TinyML.  
-The project focuses on estimating blood pressure from photoplethysmography (PPG) signals without using a traditional cuff, enabling continuous and long-term monitoring in low-power embedded environments.
+### Signal processing · CNN modeling · Embedded model packaging
 
----
+A research project exploring blood pressure estimation from photoplethysmography (PPG), with an emphasis on preparing models for resource-constrained devices. The published repository contains Python preprocessing, a PyTorch CNN, ONNX export, and model-to-C-header utilities.
 
-## Project Overview
+**Stack:** Python · NumPy / SciPy · PyTorch · ONNX · TensorFlow Lite model data
 
-Blood pressure is one of the most important physiological indicators of cardiovascular health. However, conventional cuff-based measurement methods are not suitable for continuous or long-term monitoring due to discomfort and usability limitations.
+[Project report](Middle_Report.pdf) · [Training code](code/train_onlycnn_beat.py) · [Model export](code/export_onnx.py) · [Code directory](code/)
 
-This project proposes a **TinyML-based, cuffless blood pressure estimation system** that analyzes PPG signals using lightweight deep learning models deployed directly on a microcontroller. The system is designed to operate under strict memory and power constraints while maintaining clinically meaningful estimation accuracy.
+## Workflow
 
----
+```mermaid
+flowchart LR
+  A[PPG / ABP dataset] --> B[Filtering and segmentation]
+  B --> C[PyTorch 1D CNN]
+  C --> D[ONNX export]
+  E[TFLite model file] --> F[C header generation]
+  F -. integration target .-> G[MCU firmware]
+```
 
-## Key Objectives
+The diagram separates the implemented ONNX export and C-header packaging steps. The checked-in `convert_to_tflite.py` generates sample calibration data; it does not perform ONNX-to-TFLite conversion.
 
-- Estimate blood pressure using **single-channel PPG signals**
-- Design and train deep learning models (LSTM / GRU-based)
-- Apply model compression techniques for **TinyML deployment**
-- Run real-time inference on low-power MCUs
-- Enable long-term operation suitable for wearable devices
+## Explore the implementation
 
----
+| File | What to inspect |
+| :--- | :--- |
+| [preprocessing.py](code/preprocessing.py) | PPG filtering, signal loading, and window preparation |
+| [train_onlycnn_beat.py](code/train_onlycnn_beat.py) | 1D CNN, optional attention pooling, training, checkpoint saving |
+| [export_onnx.py](code/export_onnx.py) | Model reconstruction and ONNX export |
+| [convert_to_tflite.py](code/convert_to_tflite.py) | Sample calibration-array generation |
+| [convert_to_header.py](code/convert_to_header.py) | Model bytes packaged as a C array |
+| [waveform.py](code/waveform.py) | TFLite inference / waveform inspection utilities |
+| [Middle_Report.pdf](Middle_Report.pdf) | Project context and intermediate report |
 
-## System Architecture
+## Model development
 
-The system consists of the following pipeline:
+The Python training implementation uses convolutional layers to extract features from PPG waveforms, with optional attention pooling. Related recurrent-model experiments are available in [MATLAB PPG](https://github.com/DooJinWon/Matlab_PPG).
 
-1. **PPG Signal Acquisition**  
-   - Optical PPG sensor collects pulse waveform data
-   - Sampling frequency: 100–200 Hz
+The scripts use local dataset and model paths. Reproducing the workflow requires supplying the expected data and checkpoints, adjusting paths, and checking that preprocessing and exported-model inputs agree.
 
-2. **Signal Preprocessing**  
-   - Bandpass filtering (0.5–8 Hz)
-   - Window-based segmentation
-   - Normalization and noise rejection
+## Embedded direction
 
-3. **TinyML Inference**  
-   - Lightweight recurrent neural network
-   - Integer-quantized (INT8) model
-   - On-device inference without cloud dependency
+The deployment goal is low-power, on-device inference. C-array generation provides a bridge from a model file to embedded firmware. The public source does not include the target MCU firmware, trained model artifacts, or reproducible memory, latency, and power measurements. Those measurements are therefore not presented as verified results here.
 
-4. **Result Output**  
-   - Estimated Mean Arterial Pressure (MAP)
-   - Displayed locally or transmitted wirelessly
+## Next steps
 
----
+- Publish reproducible dataset preparation and dependency versions.
+- Use representative PPG samples for calibration and evaluate conversion accuracy.
+- Include target firmware, model artifacts, and measured MCU resource usage.
+- Document held-out evaluation and measured power consumption.
 
-## Dataset
+## Research scope
 
-- **UCI Cuffless Blood Pressure Estimation Dataset**
-- Contains synchronized PPG and arterial blood pressure (ABP) signals
-- Sampling rate: 125 Hz
-- Data from over 900 subjects
-
-### Preprocessing Highlights
-- Sliding window length: 8 seconds (1000 samples)
-- 50% overlap between windows
-- Removal of low-variance and corrupted segments
-- MAP calculated as the mean of ABP within each window
-
----
-
-## Model Design
-
-- Recurrent neural network architectures:
-  - LSTM
-  - GRU
-- Input: windowed PPG time-series
-- Output: Mean Arterial Pressure (regression)
-- Performance metrics:
-  - MAE
-  - RMSE
-  - Pearson correlation coefficient
-
-Hyperparameters such as window size, number of hidden units, and learning rate were optimized to balance accuracy and generalization.
-
----
-
-## Model Compression and TinyML Deployment
-
-To enable execution on resource-constrained microcontrollers, the trained model was optimized using:
-
-- INT8 quantization
-- Weight pruning
-- Operator-level optimization
-
-### Deployment Pipeline
-1. PyTorch → ONNX
-2. ONNX → TensorFlow Lite
-3. TFLite → C array (`model_data.h`)
-4. Integrated into embedded firmware
-
----
-
-## Embedded Platform
-
-- **MCU**: nRF52840 (ARM Cortex-M4)
-- **Development Environment**: Segger Embedded Studio
-- **Memory Usage**:
-  - Flash: ~180 KB
-  - RAM: ~122 KB
-- **Inference Latency**: < 200 ms
-- **Update Rate**: ≥ 1 Hz
-
-The optimized model fits within the memory and real-time constraints of the target MCU while maintaining acceptable prediction accuracy.
-
----
-
-## Experimental Results
-
-- Comparable accuracy between float32 and INT8 models
-- Slight increase in MAE after quantization, within acceptable limits
-- Stable real-time inference confirmed on MCU
-- Quantization significantly reduced memory footprint and power consumption
-
----
-
-## Power and Wearable Considerations
-
-- Designed for battery-powered operation
-- Optimized sensor duty cycle and inference frequency
-- Suitable for long-term monitoring scenarios
-- No continuous wireless connection required
-
----
-
-## Current Status
-
-- Model training and validation completed
-- TinyML deployment verified on MCU
-- Static inference tests successful
-- Real-time sensor integration and live validation in progress
-
----
-
-## Future Work
-
-- Real-time PPG sensor integration
-- User-specific calibration strategies
-- BLE-based mobile application interface
-- Extended power consumption profiling
-- Long-term field testing
-
----
-
-## License
-
-This project is released under the MIT License.
+This repository presents experimental signal-processing and ML work. It does not establish clinical validation or suitability for diagnosis.
