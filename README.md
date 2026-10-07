@@ -1,55 +1,80 @@
-# PPG Blood Pressure Estimation / TinyML Preparation
+# On-Device PPG Blood Pressure Estimation
 
-### Signal processing · CNN modeling · Embedded model packaging
+### nRF52840 · MAX30102 · Zephyr · Edge Impulse · TinyML
 
-A research project exploring blood pressure estimation from photoplethysmography (PPG), with an emphasis on preparing models for resource-constrained devices. The published repository contains Python preprocessing, a PyTorch CNN, ONNX export, and model-to-C-header utilities.
+A capstone research prototype that acquires PPG over I²C, processes the signal on an nRF52840 MCU, and estimates **mean arterial pressure (MAP)** with a 1D CNN. The final project integrated sensor acquisition, embedded inference, and cuff-reference offset calibration.
 
-**Stack:** Python · NumPy / SciPy · PyTorch · ONNX · TensorFlow Lite model data
+**Team project:** Moon-Hee Kwon and Jin-Won Doo. Results below come from the final capstone report, sections 3–4. The existing `code/` directory represents the earlier model-development stage.
 
-[Project report](Middle_Report.pdf) · [Training code](code/train_onlycnn_beat.py) · [Model export](code/export_onnx.py) · [Code directory](code/)
-
-## Workflow
+## System
 
 ```mermaid
 flowchart LR
-  A[PPG / ABP dataset] --> B[Filtering and segmentation]
-  B --> C[PyTorch 1D CNN]
-  C --> D[ONNX export]
-  E[TFLite model file] --> F[C header generation]
-  F -. integration target .-> G[MCU firmware]
+ A[MAX30102 PPG sensor] -->|I2C| B[nRF52840 / Zephyr]
+ B --> C[Filtering / resampling / normalization]
+ C --> D[500-point PPG input]
+ D --> E[Edge Impulse CNN inference]
+ E --> F[MAP output reconstruction]
+ F --> G[User-specific bias correction]
+ G --> H[Serial MAP output]
+ I[Omron cuff reference] --> G
 ```
 
-The diagram separates the implemented ONNX export and C-header packaging steps. The checked-in `convert_to_tflite.py` generates sample calibration data; it does not perform ONNX-to-TFLite conversion.
+## Implementation highlights
 
-## Explore the implementation
+- Integrated an Edge Impulse exported Zephyr module using nRF Connect SDK and flashed the nRF52840 board.
+- Verified fixed-input inference with board logs, then integrated live MAX30102 IR samples.
+- Reduced training input from 1,000 to 500 points while retaining the original 8-second window through resampling: 50% less input storage.
+- Implemented I²C initialization, FIFO acquisition, buffered filtering, resampling, normalization, classifier callbacks, MAP reconstruction, and offset calibration.
+- Investigated ADC saturation and adjusted LED current and ADC range to recover a varying PPG waveform.
+- Compared board estimates with an Omron cuff reference and recorded an inference timing benchmark.
 
-| File | What to inspect |
-| :--- | :--- |
-| [preprocessing.py](code/preprocessing.py) | PPG filtering, signal loading, and window preparation |
-| [train_onlycnn_beat.py](code/train_onlycnn_beat.py) | 1D CNN, optional attention pooling, training, checkpoint saving |
-| [export_onnx.py](code/export_onnx.py) | Model reconstruction and ONNX export |
-| [convert_to_tflite.py](code/convert_to_tflite.py) | Sample calibration-array generation |
-| [convert_to_header.py](code/convert_to_header.py) | Model bytes packaged as a C array |
-| [waveform.py](code/waveform.py) | TFLite inference / waveform inspection utilities |
-| [Middle_Report.pdf](Middle_Report.pdf) | Project context and intermediate report |
+## Final-report results
 
-## Model development
+### Cuff-reference comparison
 
-The Python training implementation uses convolutional layers to extract features from PPG waveforms, with optional attention pooling. Related recurrent-model experiments are available in [MATLAB PPG](https://github.com/DooJinWon/Matlab_PPG).
+| Metric | Before calibration | After calibration |
+|---|---:|---:|
+| MAE | 8.15 mmHg | 2.67 mmHg |
+| RMSE | 8.88 mmHg | 3.04 mmHg |
+| Signed bias | +8.15 mmHg | −2.67 mmHg |
+| Mean relative error | 10.43% | 3.27% |
 
-The scripts use local dataset and model paths. Reproducing the workflow requires supplying the expected data and checkpoints, adjusting paths, and checking that preprocessing and exported-model inputs agree.
+The report summarizes **three raw and three calibrated comparison rows**. Each row averages two cuff readings and five MCU predictions. Reported MAE reduction: approximately **67.3%**. Raw and calibrated readings were obtained in different sessions with different reference values; this is a small prototype experiment, not a controlled paired clinical validation or an independent population test.
 
-## Embedded direction
+Calibration subtracts a user-specific offset; it **does not retrain model weights**. These figures describe MAP, not separate systolic or diastolic prediction.
 
-The deployment goal is low-power, on-device inference. C-array generation provides a bridge from a model file to embedded firmware. The public source does not include the target MCU firmware, trained model artifacts, or reproducible memory, latency, and power measurements. Those measurements are therefore not presented as verified results here.
+### Embedded benchmark
 
-## Next steps
+| Item | Reported value | Evidence type |
+|---|---:|---|
+| Model input | 500 points | Final implementation |
+| Mean inference time | 9.563 seconds | 10 inference repetitions |
+| Inference current | 4.5 mA | Assumed value |
+| Supply voltage | 3.3 V | Assumed value |
+| Power | 14.85 mW | Calculated from assumptions |
+| Energy per inference | Approximately 142 mJ | Calculated using measured runtime |
 
-- Publish reproducible dataset preparation and dependency versions.
-- Use representative PPG samples for calibration and evaluate conversion accuracy.
-- Include target firmware, model artifacts, and measured MCU resource usage.
-- Document held-out evaluation and measured power consumption.
+Power and energy are **estimates**, not direct electrical measurements. Runtime requires optimization for faster wearable updates. The report does not establish verified peak RAM or Flash consumption.
 
-## Research scope
+### Earlier model evaluation
 
-This repository presents experimental signal-processing and ML work. It does not establish clinical validation or suitability for diagnosis.
+An initial Edge Impulse evaluation in the report lists MAE **5.06 mmHg**, MSE **40.90**, and explained variance **0.64**. These belong to a different evaluation stage and are not the final live-sensor accuracy.
+
+## Repository and reproducibility
+
+| Resource | Scope |
+|---|---|
+| [`code/`](code/) | Earlier Python preprocessing, PyTorch CNN training, ONNX export, model-to-header utilities |
+| [`Middle_Report.pdf`](Middle_Report.pdf) | Earlier project report |
+| This README | Final implementation and result summary from the supplied final report |
+
+The final Edge Impulse model export, complete Zephyr build configuration, and raw experimental logs are not included in the original repository. The published earlier scripts alone do not reproduce the final hardware result. `code/convert_to_tflite.py` prepares sample calibration data; it is not a complete model converter.
+
+The final report appendix contains differences requiring reconciliation before a reproducible rebuild: training preprocessing defaults to median/IQR scaling, while the embedded snippet uses z-score normalization; FIFO averaging must be checked against the effective acquisition rate before asserting an 8-second hardware window.
+
+## Engineering lessons
+
+Operator support, quantization, input normalization, and signal quality all affected deployment. Next steps include aligning training and firmware preprocessing, validating sample timing, publishing exact model/build artifacts, optimizing inference, and expanding subject-independent evaluation.
+
+Research prototype for embedded implementation; no clinical certification or diagnostic performance claim.
