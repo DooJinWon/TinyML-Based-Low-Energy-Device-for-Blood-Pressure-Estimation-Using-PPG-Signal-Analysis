@@ -7,6 +7,14 @@ A capstone research prototype that acquires PPG over I²C, processes the signal 
 
 **My role:** I implemented the end-to-end sensing and inference pipeline, from PPG acquisition and preprocessing to model deployment on the nRF52840 and subject-specific calibration. I trained a 1D CNN using the public UCI PPG/ABP dataset and worked on quantization and input-size optimization for the MCU’s limited memory and computational resources.
 
+## Model evolution and completed live-sensor integration
+
+I initially experimented with LSTM and GRU models for PPG-based blood-pressure estimation. These recurrent models exceeded the available RAM budget on the target MCU, so I could not deploy them within the device's memory constraints. I switched to a 1D CNN and optimized the model and input size for deployment on the nRF52840.
+
+The final project completed the live-sensor integration: MAX30102 PPG acquisition, signal preprocessing, 1D CNN inference on the MCU, MAP reconstruction, and subject-specific offset calibration were integrated into a working embedded pipeline. This supersedes the earlier project stage in which real-time sensor integration was still in progress.
+
+Here, completed real-time integration means inference on live sensor data rather than fixed test inputs. It does not imply sub-second predictions: the final-report benchmark measured a mean inference time of 9.563 seconds, as detailed below.
+
 ## System
 
 ```mermaid
